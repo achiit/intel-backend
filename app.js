@@ -147,6 +147,75 @@ app.post('/voice', handleTwilioCall);
 app.post('/handle-response', handleJsonData);
 app.get('/get-all-data', getAllData);
 
+const openAI = require('openai');
+
+const openai = new openAI({
+  apiKey: "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",
+});
+
+async function checkPriority() {
+  const prompt = "Hi my name is vamsi, I ordered a mobile and I received a damaged item";
+  
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      
+        messages: [
+    {
+      "role": "user",
+      "content": `Given the following user input: ${prompt}, determine the priority level of the customer service issue. The user may mention their name, order ID, and describe the issue they are facing.
+
+Consider the following priority criteria:
+- If the item received is defective, broken, damaged, or if the user received the wrong item, it's considered 'high' priority.
+- If the issue is related to the quality of the product not meeting expectations, it's considered 'medium' priority.
+- For other issues, you can default to 'low' priority.
+
+Examples of user inputs:
+1. "Hi, my name is [Name], and my order ID is [Order ID]. The item I received is defective, and..."
+2. "I received order [Order ID], but the product is broken and..."
+3. "This is [Name]. I ordered [Product], and the quality is not as expected. There's an issue with..."
+
+Please generate a response indicating the priority level of the customer service issue based on the user input, considering the provided priority criteria. If the user input doesn't align with these criteria, you can mention that the priority is high`
+    }
+      ],
+      temperature: 1,
+      max_tokens: 20,
+      top_p: 1,
+      frequency_penalty: 0,
+      presence_penalty: 0,
+    });
+    
+    const priorityLevel = response.choices[0].message.content;
+    console.log(priorityLevel);
+    return priorityLevel;
+  } catch (error) {
+    console.error("Error:", error.message);
+    throw error;
+  }
+}
+
+async function priority() {
+  try {
+    const p = await checkPriority();
+
+    if (p.includes('high')) {
+      isUrgent = true;
+    } else if (p.includes('medium')) {
+      isUrgent = false;
+    } else {
+      isUrgent = false;
+    }
+
+    // Continue with the rest of your code...
+    console.log(isUrgent);
+
+  } catch (error) {
+    console.error("Error:", error.message);
+  }
+}
+
+priority();
+
 app.listen(3000, '0.0.0.0', () => {
   console.log('Server is running on port 3000');
 });
