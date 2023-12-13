@@ -5,6 +5,8 @@ const VoiceResponse = require('twilio').twiml.VoiceResponse;
 const { Sequelize } = require("sequelize");
 const app = express();
 
+const openAI = require('openai');
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json()); // Parse JSON bodies
 app.use(cors());
@@ -57,19 +59,88 @@ function handleTwilioCall(req, res) {
 
 // Function to handle JSON data
 function handleJsonData(req, res) {
-  const isTwilioRequest = req.body.hasOwnProperty('SpeechResult'); // Check if it's a Twilio request
+  const isTwilioRequest = req.body && req.body.SpeechResult !== undefined; // Check if it's a Twilio request
+
 
   if (isTwilioRequest) {
     // Handle Twilio request
-    const { SpeechResult } = req.body;
+    const { SpeechResult } =  req.body.SpeechResult;
     const name = SpeechResult;
+  
     const orderId = '12345'; // Extract orderId from user input
     const issue = 'Delivery Issue'; // Extract issue from user input
 
     // Perform NLP and ML analysis here to determine priority
 
     // Simulate urgency check
-    const isUrgent = true; // Replace with your urgency determination logic
+    let isUrgent = true; // Replace with your urgency determination logic
+
+
+const openai = new openAI({
+  apiKey: 'apikey',
+});
+
+async function checkPriority() {
+  const prompt = `Given the user input: ${name}, assess the priority level for the customer service issue based on the criteria:
+
+  1. If the item is defective, broken, damaged, or if the wrong item is received, it's 'high' priority.
+  2. If the issue is about product quality not meeting expectations, it's 'medium' priority.
+  3. For other issues, default to 'high' priority.
+  
+  Examples:
+  1. "Hi, my name is [Name], and my order ID is [Order ID]. The item is defective, and..."
+  2. "Received order [Order ID], but the product is broken and..."
+  3. "[Name] here. Ordered [Product], and the quality is not as expected. There's an issue with..."
+  
+  Provide a concise response indicating 'high' or 'medium' priority. If the input doesn't match criteria, mention 'high' priority.`;
+  
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      
+        messages: [
+    {
+      "role": "user",
+      "content":prompt
+    }
+      ],
+      temperature: 1,
+      max_tokens: 40,
+      top_p: 1,
+      frequency_penalty: 0,
+      presence_penalty: 0,
+    });
+    
+    const priorityLevel = response.choices[0].message.content;
+    console.log(priorityLevel);
+    return priorityLevel;
+  } catch (error) {
+    console.error("Error:", error.message);
+    throw error;
+  }
+}
+
+async function priority() {
+  try {
+    const p = await checkPriority();
+
+    if (p.includes('high')) {
+      isUrgent = true;
+    } else if (p.includes('medium')) {
+      isUrgent = false;
+    } else {
+      isUrgent = false;
+    }
+
+    // Continue with the rest of your code...
+    console.log(isUrgent);
+
+  } catch (error) {
+    console.error("Error:", error.message);
+  }
+}
+
+priority();
 
     if (isUrgent) {
       // Insert data into PostgreSQL
@@ -147,7 +218,8 @@ app.post('/voice', handleTwilioCall);
 app.post('/handle-response', handleJsonData);
 app.get('/get-all-data', getAllData);
 
+
+
 app.listen(3000, '0.0.0.0', () => {
   console.log('Server is running on port 3000');
 });
-
